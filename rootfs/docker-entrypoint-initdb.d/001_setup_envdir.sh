@@ -7,15 +7,21 @@ if [[ "$DATABASE_STORAGE" == "s3" || "$DATABASE_STORAGE" == "minio" ]]; then
   AWS_SECRET_ACCESS_KEY=$(cat /var/run/secrets/deis/objectstore/creds/secretkey)
   if [[ "$DATABASE_STORAGE" == "s3" ]]; then
     AWS_REGION=$(cat /var/run/secrets/deis/objectstore/creds/region)
+    AWS_ENDPOINT=$(cat /var/run/secrets/deis/objectstore/creds/endpoint)
     BUCKET_NAME=$(cat /var/run/secrets/deis/objectstore/creds/database-bucket)
-    # Convert $AWS_REGION into $WALE_S3_ENDPOINT to avoid "Connection reset by peer" from
-    # regions other than us-standard.
-    # See https://github.com/wal-e/wal-e/issues/167
-    # See https://github.com/boto/boto/issues/2207
-    if [[ "$AWS_REGION" == "us-east-1" ]]; then
-      echo "https+path://s3.amazonaws.com:443" > WALE_S3_ENDPOINT
+    if [[ "$AWS_ENDPOINT" == "" ]]; then
+        # Convert $AWS_REGION into $WALE_S3_ENDPOINT to avoid "Connection reset by peer" from
+        # regions other than us-standard.
+        # See https://github.com/wal-e/wal-e/issues/167
+        # See https://github.com/boto/boto/issues/2207
+        if [[ "$AWS_REGION" == "us-east-1" ]]; then
+          echo "https+path://s3.amazonaws.com:443" > WALE_S3_ENDPOINT
+        else
+          echo "https+path://s3-${AWS_REGION}.amazonaws.com:443" > WALE_S3_ENDPOINT
+        fi
     else
-      echo "https+path://s3-${AWS_REGION}.amazonaws.com:443" > WALE_S3_ENDPOINT
+        echo "$AWS_ENDPOINT" > AWS_ENDPOINT
+        echo "$AWS_ENDPOINT" | sed -E -e 's!http(s?)://!http\1+path://!' -e 's!/$!!' > WALE_S3_ENDPOINT
     fi
   else
     AWS_REGION="us-east-1"
